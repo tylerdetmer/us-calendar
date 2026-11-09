@@ -20,7 +20,8 @@ box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:en
 *{box-sizing:border-box;margin:0}
 html,body{background:var(--bg);color:var(--ink);font:400 16px/1.4 "DM Sans",system-ui,sans-serif}
 body{max-width:460px;margin:0 auto;min-height:100vh;padding:16px 16px 160px}
-h1,h2,.num{font-family:"Bricolage Grotesque","DM Sans",sans-serif}
+h1,h2,.num{font-family:var(--hf,"Bricolage Grotesque"),"DM Sans",sans-serif}
+:root[data-hf] h1,:root[data-hf] h2,:root[data-hf] .num{font-weight:400;letter-spacing:0}:root[data-hf] h1{font-size:23px}:root[data-hf] h2{font-size:17px}
 header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
 h1{font-size:28px;font-weight:800;letter-spacing:-.02em}
 .nav{display:flex;gap:6px}
@@ -241,13 +242,15 @@ const PALS={
  mulberry:{n:"Mulberry",s:"Fall",t:"Plum and dusty rose",c:["#FAF0EE","#FFFFFF","#3D2530","#8B6A74","#EBD6D6","#9C3F5F","#FFFFFF","#C65A3A","#5B6FB5","#3E8E7E","#B8791A","#B83A6A","#7C4FA0","#5E8F3A","#8B6A74"]},
  timber:{n:"Timber",s:"Fall",t:"Dark walnut and amber",d:true,c:["#1E1812","#2A2118","#F3E8D8","#A8977F","#3D3226","#E0A44A","#1E1812","#F08A5D","#7FB0E0","#5CC0B0","#E0A44A","#EE7E8E","#B79AE8","#8CC56A","#A8977F"]},
  frost:{n:"Frost",s:"Winter",t:"Icy lilac and silver",c:["#F3F2FB","#FFFFFF","#2A2842","#6F6D92","#DEDCF0","#6E56C8","#FFFFFF","#D6558F","#4E7FD8","#2E9AA6","#B98A1E","#C2438E","#7A5BD0","#3E9E78","#6F6D92"]},
+ irish:{n:"Fighting Irish",s:"Team",t:"Navy, gold and Irish green",d:true,f:"Uncial Antiqua",c:["#0C2340","#13305A","#F4EFE3","#A9B8CF","#2B4A75","#C18E00","#0C2340","#4DBE86","#8DB4E8","#5CC0B8","#E3B23C","#F08FA3","#B9A4EE","#F0A35E","#A9B8CF"]},
  midnight:{n:"Midnight",s:"Winter",t:"Deep navy and sky blue",d:true,c:["#0E1420","#172033","#E8EEF7","#8896AD","#25314A","#6FB1FF","#0E1420","#FF8A6B","#6FB1FF","#4FD0D0","#F0C04A","#FF7A93","#A99BFF","#5FD39A","#8896AD"]}
 };
-function applyPal(k){const r=document.documentElement,p=PALS[k];PKEYS.forEach(n=>r.style.removeProperty("--"+n));r.style.colorScheme="";if(k==="classic"||!p)return;PKEYS.forEach((n,i)=>r.style.setProperty("--"+n,p.c[i]));r.style.colorScheme=p.d?"dark":"light"}
+function loadFont(f){const id="f-"+f.replace(/ /g,"");if(document.getElementById(id))return;const l=document.createElement("link");l.id=id;l.rel="stylesheet";l.href="https://fonts.googleapis.com/css2?family="+f.replace(/ /g,"+")+"&display=swap";document.head.appendChild(l)}
+function applyPal(k){const r=document.documentElement,p=PALS[k];PKEYS.forEach(n=>r.style.removeProperty("--"+n));r.style.removeProperty("--hf");r.removeAttribute("data-hf");r.style.colorScheme="";if(k==="classic"||!p)return;PKEYS.forEach((n,i)=>r.style.setProperty("--"+n,p.c[i]));r.style.colorScheme=p.d?"dark":"light";if(p.f){loadFont(p.f);r.style.setProperty("--hf",'"'+p.f+'"');r.setAttribute("data-hf","1")}}
 function openTheme(){drawTheme();scrim.classList.add("open")}
 function drawTheme(){const cur=state.palette||"classic";const row=k=>{const p=PALS[k];return `<button class="thm ${cur===k?"on":""}" data-pal="${k}"><span class="sw">${[p.c[0],p.c[5],p.c[7],p.c[8]].map(c=>`<i style="background:${c}"></i>`).join("")}</span><span class="thn"><b>${p.n}</b><small>${p.t}${p.s?" · "+(p.d?"Dark":"Light"):""}</small></span>${cur===k?"✓":""}</button>`};
   let h=`<h2>App style</h2>`+row("classic")+row("custom");
-  ["Spring","Summer","Fall","Winter"].forEach(s=>{h+=`<div class="dh">${s}</div>`+Object.keys(PALS).filter(k=>PALS[k].s===s).map(row).join("")});
+  ["Spring","Summer","Fall","Winter","Team"].forEach(s=>{h+=`<div class="dh">${s}</div>`+Object.keys(PALS).filter(k=>PALS[k].s===s).map(row).join("")});
   sheet.innerHTML=h+`<div class="dh">Account</div><p class="hint" style="margin:0 0 8px">Signed in as ${esc(ME.name)}${PARTNER.id?"":". Invite code for your spouse: <b>"+esc(INVITE)+"</b>"}</p><button class="btn ghost" id="so" style="width:100%">Sign out</button><div class="btns"><button class="btn" id="s-cancel">Done</button></div>`}
 const CBG={light:[["Snow","#F4F6F8","#FFFFFF","#E1E6EB","#16202B","#6B7785"],["Cream","#FAF5EA","#FFFDF8","#EADFC8","#2E261A","#86775C"],["Blush","#FFF5F7","#FFFFFF","#F3DDE4","#3B2A33","#8A6F7B"],["Mint","#EFF7F3","#FFFFFF","#D3E6DC","#17302A","#5F7D72"],["Sky","#EEF5FA","#FFFFFF","#D5E4EF","#14293D","#61798E"],["Lavender","#F3F1FA","#FFFFFF","#DEDAF0","#2A2842","#6F6D92"]],
  dark:[["Graphite","#12161B","#1C2229","#2B343D","#EEF2F6","#8C98A6"],["Navy","#0E1420","#172033","#25314A","#E8EEF7","#8896AD"],["Forest","#111A14","#1A261E","#2A3B2F","#E6F0E4","#8DA394"],["Plum","#1A121C","#261A29","#3A2A3E","#F3E8F5","#A58EAA"],["Espresso","#1E1812","#2A2118","#3D3226","#F3E8D8","#A8977F"],["Black","#000000","#111111","#262626","#F5F5F5","#8A8A8A"]]};
