@@ -132,7 +132,10 @@ function loadPrefs(){try{return JSON.parse(localStorage.getItem("us-prefs"))||{}
 Object.assign(state,loadPrefs());
 function save(){try{localStorage.setItem("us-prefs",JSON.stringify({palette:state.palette,custom:state.custom,order:state.order}))}catch(e){}queueSync()}
 
-function occurs(ev,ds){
+function occurs(ev,ds){const sp=ev.endDate&&ev.endDate>ev.date?Math.round((parse(ev.endDate)-parse(ev.date))/864e5):0;for(let i=0;i<=sp;i++){const d=parse(ds);d.setDate(d.getDate()-i);if(occursStart(ev,ymd(d)))return true}return false}
+function occStart(e,ds){const sp=e.endDate&&e.endDate>e.date?Math.round((parse(e.endDate)-parse(e.date))/864e5):0;for(let i=0;i<=sp;i++){const d=parse(ds);d.setDate(d.getDate()-i);const s=ymd(d);if(occursStart(e,s))return[s,sp]}return[ds,sp]}
+function when(e,ds){const[s,sp]=occStart(e,ds);if(!sp)return e.time?fmtTime(e.time)+(e.endTime?" – "+fmtTime(e.endTime):""):"All day";const en=parse(s);en.setDate(en.getDate()+sp);const es=ymd(en);return fmtD(s)+" – "+fmtD(es)+(ds===s&&e.time?" · starts "+fmtTime(e.time):"")+(ds===es&&e.endTime?" · ends "+fmtTime(e.endTime):"")}
+function occursStart(ev,ds){
   const a=parse(ev.date),b=parse(ds);
   if(ev.repeat==="none")return ev.date===ds;
   if(b<a)return false;
@@ -148,7 +151,7 @@ const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",
 function evCard(e,ds){
   const k=e.id+"@"+ds,paid=(e.paid||{})[ds];
   const chk=e.cat==="bills"?`<span class="chk ${paid?"on":""}" data-pay="${k}" role="checkbox" aria-checked="${!!paid}" aria-label="Mark paid">${paid?"✓":""}</span>`:"";
-  return `<button class="ev c-${e.cat} ${paid?"paid":""}" data-edit="${e.id}" data-date="${ds}"><span class="bar"></span><span class="b"><div class="t">${esc(e.title)}</div><div class="m">${e.sub?esc(e.sub)+" · ":""}${fmtTime(e.time)} · ${esc(whoName(e.who))}${e.rem.length?" · "+e.rem.length+" reminder"+(e.rem.length>1?"s":""):""}${e.loc?`</div><div class="m">📍 ${esc(e.loc)}`:""}</div></span>${chk}</button>`;
+  return `<button class="ev c-${e.cat} ${paid?"paid":""}" data-edit="${e.id}" data-date="${ds}"><span class="bar"></span><span class="b"><div class="t">${esc(e.title)}</div><div class="m">${e.sub?esc(e.sub)+" · ":""}${esc(when(e,ds))} · ${esc(whoName(e.who))}${e.rem.length?" · "+e.rem.length+" reminder"+(e.rem.length>1?"s":""):""}${e.loc?`</div><div class="m">📍 ${esc(e.loc)}`:""}</div></span>${chk}</button>`;
 }
 function render(){
   document.getElementById("title").textContent=tab==="todo"?"To-do":mode==="month"?view.toLocaleString("en-US",{month:"long",year:"numeric"}):"Upcoming";
@@ -185,7 +188,10 @@ function drawSheet(){
   <label for="f-title">Title</label><input id="f-title" value="${esc(d.title)}" placeholder="${esc(d.sub||"Title")}">
   <label>Section</label><div class="chips">${orderedCats().map(k=>`<button class="chip c-${k} ${d.cat===k?"on":""}" data-cat="${k}">${CATS[k].label}</button>`).join("")}</div>
   ${CATS[d.cat].free?`<label for="f-sub">Describe it</label><input id="f-sub" value="${esc(d.sub)}" placeholder="e.g. Car wash">`:`<label>${CATS[d.cat].label}: choose one</label><div class="chips c-${d.cat}">${CATS[d.cat].subs.map(([s])=>`<button class="chip ${d.sub===s?"on":""}" data-sub="${s}">${s}</button>`).join("")}</div>`}
-  <div class="row"><div><label for="f-date">Date</label><input type="date" id="f-date" value="${d.date}"></div><div><label for="f-time">Time</label><input type="time" id="f-time" value="${d.time}"></div></div>
+  <label>Length</label><div class="chips"><button class="chip ${d.allDay?"":"on"}" data-len="timed">Set times</button><button class="chip ${d.allDay?"on":""}" data-len="all">All day</button></div>
+  <div class="row"><div><label for="f-date">Starts</label><input type="date" id="f-date" value="${d.date}"></div>${d.allDay?"":`<div><label for="f-time">Start time</label><input type="time" id="f-time" value="${d.time}"></div>`}</div>
+  <div class="row"><div><label for="f-edate">Ends</label><input type="date" id="f-edate" value="${d.endDate||d.date}"></div>${d.allDay?"":`<div><label for="f-etime">End time</label><input type="time" id="f-etime" value="${d.endTime||""}"></div>`}</div>
+  ${d.allDay?"":`<div class="chips" style="margin-top:8px">${[1,2,4,8].map(n=>`<button class="chip" data-dur="${n}">${n} hr</button>`).join("")}</div>`}
   <label for="f-loc">Location (optional)</label><input id="f-loc" value="${esc(d.loc||"")}" placeholder="Address or place name" autocomplete="off"><a id="f-map" href="https://maps.apple.com/?q=${encodeURIComponent(d.loc||"")}" target="_blank" rel="noopener" style="display:${d.loc?"inline-block":"none"};margin-top:6px;font-size:14px;color:var(--work)">Open in Maps</a>
   <div class="row"><div><label for="f-rep">Repeats</label><select id="f-rep">${Object.entries(REPEATS).map(([k,v])=>`<option value="${k}" ${d.repeat===k?"selected":""}>${v}</option>`).join("")}</select></div><div><label for="f-who">Who</label><select id="f-who">${whoOpts().map(([k,v])=>`<option value="${k}" ${d.who===k?"selected":""}>${esc(v)}</option>`).join("")}</select></div></div>
   <label>Reminders</label><div class="chips">${d.rem.map((r,i)=>`<button class="chip rem" data-rm="${i}" aria-label="Remove reminder">${fmtRem(r)} ✕</button>`).join("")||'<span class="empty" style="padding:0">None yet</span>'}</div>
@@ -193,7 +199,7 @@ function drawSheet(){
   <div class="btns">${d._new?"":'<button class="btn del" id="s-del">Delete</button>'}<button class="btn ghost" id="s-cancel">Cancel</button><button class="btn" id="s-save">Save</button></div>
   <p class="hint">Saved and shared automatically. Reminders go to the phones you choose, even when the app is closed.</p>`;
 }
-function readFields(){draft.title=document.getElementById("f-title").value;const fs=document.getElementById("f-sub");if(fs)draft.sub=fs.value;draft.date=document.getElementById("f-date").value||draft.date;draft.time=document.getElementById("f-time").value;draft.loc=document.getElementById("f-loc").value;draft.repeat=document.getElementById("f-rep").value;draft.who=document.getElementById("f-who").value}
+function readFields(){draft.title=document.getElementById("f-title").value;const fs=document.getElementById("f-sub");if(fs)draft.sub=fs.value;draft.date=document.getElementById("f-date").value||draft.date;{const ft=$("f-time"),ee=$("f-edate"),et=$("f-etime");if(ft)draft.time=ft.value;if(ee)draft.endDate=ee.value;if(et)draft.endTime=et.value}draft.loc=document.getElementById("f-loc").value;draft.repeat=document.getElementById("f-rep").value;draft.who=document.getElementById("f-who").value}
 const closeSheet=()=>scrim.classList.remove("open");
 function applyDefault(){if(!draft._new)return;const s=CATS[draft.cat].subs.find(x=>x[0]===draft.sub);draft.repeat=(s&&s[1])||"none"}
 function drawFilters(){filters.innerHTML=`<button class="chip ${filt==="all"?"on":""}" data-filt="all">All</button>`+orderedCats().map(k=>`<button class="chip c-${k} ${filt===k?"on":""}" data-filt="${k}">${CATS[k].label}</button>`).join("")+`<button class="chip" id="ro-open">⇅ Reorder</button>`}
@@ -272,6 +278,8 @@ document.addEventListener("click",e=>{
   const t=e.target.closest("button,.chk,[data-pay]");if(!t&&e.target===scrim){closeSheet();return}
   if(!t)return;
   if(t.dataset.pay){e.stopPropagation();const[pid,pds]=t.dataset.pay.split("@");const pe=state.events.find(x=>x.id===pid);pe.paid=pe.paid||{};pe.paid[pds]?delete pe.paid[pds]:pe.paid[pds]=1;save();render();return}
+  if(t.dataset.len){readFields();draft.allDay=t.dataset.len==="all";if(draft.allDay){draft.time="";draft.endTime=""}drawSheet();return}
+  if(t.dataset.dur){readFields();if(!draft.time){notify("Set a start time first","Then tap a length to fill in the end.");return}const sd=new Date(draft.date+"T"+draft.time);sd.setHours(sd.getHours()+(+t.dataset.dur));draft.endDate=ymd(sd);draft.endTime=pad(sd.getHours())+":"+pad(sd.getMinutes());drawSheet();return}
   if(t.dataset.mv){const i=+t.dataset.mv,j=i+ +t.dataset.dir;[ro[i],ro[j]]=[ro[j],ro[i]];drawRo();return}
   if(t.dataset.filt){filt=t.dataset.filt;render();return}
   if(t.dataset.cd){openCd(state.cds.find(x=>x.id==t.dataset.cd));return}
@@ -304,7 +312,7 @@ document.addEventListener("click",e=>{
     case"c-save":{const ti=document.getElementById("c-title").value.trim(),dt=document.getElementById("c-date").value;if(!ti){document.getElementById("c-title").focus();break}if(!dt)break;cdd.title=ti;cdd.date=dt;const{_new,...c}=cdd;const i=state.cds.findIndex(x=>x.id===c.id);i>=0?state.cds[i]=c:state.cds.push(c);save();closeSheet();render();break}
     case"s-del":state.events=state.events.filter(x=>x.id!==draft.id);save();closeSheet();render();break;
     case"s-save":{readFields();
-      const{_new,...ev}=draft;ev.title=ev.title.trim()||ev.sub.trim()||"Untitled";ev.sub=ev.sub.trim();ev.loc=(ev.loc||"").trim();ev.tz=Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const{_new,...ev}=draft;ev.title=ev.title.trim()||ev.sub.trim()||"Untitled";ev.sub=ev.sub.trim();ev.loc=(ev.loc||"").trim();if(ev.allDay){ev.time="";ev.endTime=""}if(!ev.endDate||ev.endDate<ev.date)ev.endDate=ev.date;if(ev.time&&ev.endTime&&ev.endDate===ev.date&&ev.endTime<=ev.time){const nd=parse(ev.date);nd.setDate(nd.getDate()+1);ev.endDate=ymd(nd)}ev.tz=Intl.DateTimeFormat().resolvedOptions().timeZone;
       const i=state.events.findIndex(x=>x.id===ev.id);i>=0?state.events[i]=ev:state.events.push(ev);
       sel=ev.date;view=new Date(parse(ev.date).getFullYear(),parse(ev.date).getMonth(),1);save();closeSheet();render();break}
     case"add":openSheet(null,sel);break;
