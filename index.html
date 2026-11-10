@@ -89,6 +89,18 @@ input,select{width:100%;font:inherit;color:var(--ink);background:var(--bg);borde
 .ttl{display:flex;align-items:center;gap:8px;min-width:0}.mini{width:26px;height:26px;border-radius:50%;color:var(--mute);border:1px solid var(--line);font-size:14px;line-height:1;opacity:.8}
 .swr{display:flex;flex-wrap:wrap;gap:12px}.swb{width:42px;height:42px;border-radius:50%;border:2px solid var(--line);position:relative;padding:0}.swb.on{box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--ink)}.swb span{position:absolute;right:3px;bottom:3px;width:14px;height:14px;border-radius:50%}.rorow.lift{box-shadow:0 8px 20px rgba(0,0,0,.28);background:var(--bg);border-radius:12px;transform:scale(1.02);cursor:grabbing}
 .gate{position:fixed;inset:0;background:var(--bg);z-index:20;overflow:auto;padding:calc(24px + env(safe-area-inset-top,0px)) 20px 24px;display:none}.gate.show{display:block}.gate .box{max-width:380px;margin:8vh auto 0}
+.dayv{position:fixed;inset:0;background:var(--bg);z-index:4;display:none;padding:calc(14px + env(safe-area-inset-top,0px)) 14px calc(14px + env(safe-area-inset-bottom,0px))}.dayv.show{display:block}
+.dvbox{max-width:460px;margin:0 auto;height:100%;display:flex;flex-direction:column}
+.dvh{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}.dvh h2{margin:0}
+.dvplus{background:var(--accent);color:var(--on);border-color:transparent;font-size:22px}
+.dvstrip{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:10px}.dvl{font-size:12px;color:var(--mute);width:48px}
+.dvchip{background:var(--c);color:var(--on);padding:5px 10px;border-radius:8px;font-size:12px}
+.dvscroll{flex:1;min-height:0;overflow:auto;background:var(--surface);border:1px solid var(--line);border-radius:12px}
+.dvtl{position:relative}
+.slot{position:absolute;left:0;right:0;border-top:1px solid var(--line);text-align:left;padding:2px 8px;font-size:11px;color:var(--mute);border-radius:0}
+.dvcol{position:absolute;left:58px;right:6px;top:0;bottom:0;pointer-events:none}
+.blk{position:absolute;pointer-events:auto;box-sizing:border-box;overflow:hidden;text-align:left;padding:5px 8px;border-left:4px solid var(--c);border-radius:6px;background:color-mix(in srgb,var(--c) 20%,var(--surface));color:var(--ink);font-size:13px;line-height:1.25}
+.blk b{font-weight:500}.blk small{display:block;font-size:12px;color:var(--mute)}.blk.one small{display:inline}
 </style>
 </head>
 <body>
@@ -101,6 +113,7 @@ input,select{width:100%;font:inherit;color:var(--ink);background:var(--bg);borde
 <div class="gate show" id="gate"><div class="box"><h1>Us</h1></div></div>
 <div class="toast" id="toast" role="status"></div>
 <nav class="tabs"><div><button id="tc" class="on">Calendar</button><button id="tt">To-do</button></div></nav>
+<div class="dayv" id="dayv"></div>
 <div class="scrim" id="scrim"><div class="sheet" id="sheet"></div></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
@@ -200,7 +213,7 @@ function drawSheet(){
   <p class="hint">Saved and shared automatically. Reminders go to the phones you choose, even when the app is closed.</p>`;
 }
 function readFields(){draft.title=document.getElementById("f-title").value;const fs=document.getElementById("f-sub");if(fs)draft.sub=fs.value;draft.date=document.getElementById("f-date").value||draft.date;{const ft=$("f-time"),ee=$("f-edate"),et=$("f-etime");if(ft)draft.time=ft.value;if(ee)draft.endDate=ee.value;if(et)draft.endTime=et.value}draft.loc=document.getElementById("f-loc").value;draft.repeat=document.getElementById("f-rep").value;draft.who=document.getElementById("f-who").value}
-const closeSheet=()=>scrim.classList.remove("open");
+const closeSheet=()=>{scrim.classList.remove("open");if(dayDs)drawDay(true)};
 function applyDefault(){if(!draft._new)return;const s=CATS[draft.cat].subs.find(x=>x[0]===draft.sub);draft.repeat=(s&&s[1])||"none"}
 function drawFilters(){filters.innerHTML=`<button class="chip ${filt==="all"?"on":""}" data-filt="all">All</button>`+orderedCats().map(k=>`<button class="chip c-${k} ${filt===k?"on":""}" data-filt="${k}">${CATS[k].label}</button>`).join("")+`<button class="chip" id="ro-open">⇅ Reorder</button>`}
 const daysTo=ds=>Math.round((parse(ds)-parse(ymd(today)))/864e5);
@@ -278,6 +291,7 @@ document.addEventListener("click",e=>{
   const t=e.target.closest("button,.chk,[data-pay]");if(!t&&e.target===scrim){closeSheet();return}
   if(!t)return;
   if(t.dataset.pay){e.stopPropagation();const[pid,pds]=t.dataset.pay.split("@");const pe=state.events.find(x=>x.id===pid);pe.paid=pe.paid||{};pe.paid[pds]?delete pe.paid[pds]:pe.paid[pds]=1;save();render();return}
+  if(t.dataset.slot){const hr=+t.dataset.slot;openSheet(null,dayDs);draft.time=pad(hr)+":00";drawSheet();return}
   if(t.dataset.len){readFields();draft.allDay=t.dataset.len==="all";if(draft.allDay){draft.time="";draft.endTime=""}drawSheet();return}
   if(t.dataset.dur){readFields();if(!draft.time){notify("Set a start time first","Then tap a length to fill in the end.");return}const sd=new Date(draft.date+"T"+draft.time);sd.setHours(sd.getHours()+(+t.dataset.dur));draft.endDate=ymd(sd);draft.endTime=pad(sd.getHours())+":"+pad(sd.getMinutes());drawSheet();return}
   if(t.dataset.mv){const i=+t.dataset.mv,j=i+ +t.dataset.dir;[ro[i],ro[j]]=[ro[j],ro[i]];drawRo();return}
@@ -288,7 +302,7 @@ document.addEventListener("click",e=>{
   if(t.dataset.tdd){openDue(t.dataset.tdd);return}
   if(t.dataset.td){const x=state.todos.find(y=>y.id==t.dataset.td);x.done=!x.done;save();render();return}
   if(t.dataset.tdx){state.todos=state.todos.filter(y=>y.id!=t.dataset.tdx);save();render();return}
-  if(t.dataset.day){sel=t.dataset.day;render();return}
+  if(t.dataset.day){sel=t.dataset.day;render();openDay(sel);return}
   if(t.dataset.edit){openSheet(state.events.find(x=>x.id==t.dataset.edit));return}
   if(t.dataset.cat){readFields();draft.cat=t.dataset.cat;draft.sub=(CATS[draft.cat].subs[0]||[""])[0];applyDefault();drawSheet();return}
   if(t.dataset.sub){readFields();draft.sub=t.dataset.sub;applyDefault();drawSheet();return}
@@ -302,6 +316,8 @@ document.addEventListener("click",e=>{
     case"dd-clear":{state.todos.find(x=>x.id===dueId).due="";save();closeSheet();render();break}
     case"ro-open":openRo();break;
     case"ro-save":state.order=ro;save();closeSheet();render();break;
+    case"dv-back":closeDay();break;
+    case"dv-add":openSheet(null,dayDs);break;
     case"so":sb.auth.signOut().then(()=>location.reload());break;
     case"bell":enableAlerts();break;
     case"tc":tab="cal";render();break;
@@ -340,7 +356,7 @@ async function pull(){if(dirty||pulling){again=true;return}pulling=true;
   const ev=[],td=[],cd=[];snap=new Map();
   data.forEach(r=>{snap.set(r.id,JSON.stringify(r.data));(r.kind==="event"?ev:r.kind==="todo"?td:cd).push({id:r.id,...r.data})});
   td.sort((a,b)=>(a.pos??0)-(b.pos??0));state.events=ev;state.todos=td;state.cds=cd;
-  const a=document.activeElement;if(!(a&&a.id==="td-in"&&a.value))render();
+  const a=document.activeElement;if(!(a&&a.id==="td-in"&&a.value))render();if(dayDs)drawDay(true);
  }catch(e){console.error(e)}pulling=false;if(again&&!dirty){again=false;pull()}}
 function gate(html){const g=$("gate");g.innerHTML=`<div class="box">${html}</div>`;g.classList.add("show")}
 function showAuth(mode,msg){mode=mode||"in";gate(`<h1>Us</h1><p class="empty" style="padding:6px 0 10px">Your shared calendar, just for the two of you.</p>${mode==="up"?`<label for="a-name">Your name</label><input id="a-name" autocomplete="given-name">`:""}<label for="a-email">Email</label><input id="a-email" type="email" autocomplete="email" autocapitalize="none"><label for="a-pw">Password (6+ characters)</label><input id="a-pw" type="password" autocomplete="${mode==="up"?"new-password":"current-password"}"><p class="hint" id="a-msg" style="color:var(--social)">${esc(msg||"")}</p><div class="btns"><button class="btn" id="a-go">${mode==="up"?"Create account":"Sign in"}</button></div><div class="btns" style="margin-top:8px"><button class="btn ghost" id="a-sw">${mode==="up"?"I already have an account":"Create an account"}</button></div>`);
@@ -365,6 +381,27 @@ async function startApp(user,me){HH=me.household_id;
  sb.channel("items").on("postgres_changes",{event:"*",schema:"public",table:"items"},()=>pull()).subscribe();
  setInterval(()=>{if(!document.hidden)pull()},60000)}
 document.addEventListener("visibilitychange",()=>{if(document.hidden||!HH)return;if(ymd(new Date())!==ymd(today)){location.reload();return}pull()});
+let dayDs=null;
+const DH=48;
+function daySegs(ds){const blocks=[],strip=[],tm=t=>{const[h,m]=t.split(":").map(Number);return h+m/60};
+ state.events.forEach(e=>{if(!occurs(e,ds))return;const[s,sp]=occStart(e,ds),en=parse(s);en.setDate(en.getDate()+sp);const es=ymd(en);
+  if(!sp){if(!e.time){strip.push({e});return}const st=tm(e.time);let ed=e.endTime?tm(e.endTime):st+1;if(ed<=st)ed=st+1;blocks.push({e,s:st,e2:Math.min(24,ed),lbl:fmtTime(e.time)+(e.endTime?" \u2013 "+fmtTime(e.endTime):"")});return}
+  if(ds===s&&e.time){blocks.push({e,s:tm(e.time),e2:24,lbl:"from "+fmtTime(e.time)});return}
+  if(ds===es&&e.endTime){blocks.push({e,s:0,e2:Math.max(tm(e.endTime),.5),lbl:"until "+fmtTime(e.endTime)});return}
+  strip.push({e,k:Math.round((parse(ds)-parse(s))/864e5)+1,n:sp+1})});
+ return{blocks,strip}}
+function layoutBlocks(blocks){blocks.sort((a,b)=>a.s-b.s||b.e2-a.e2);let cl=[],cEnd=0;
+ const flush=()=>{const cols=[];cl.forEach(b=>{let i=cols.findIndex(x=>x<=b.s);if(i<0){i=cols.length;cols.push(0)}cols[i]=b.e2;b.col=i});cl.forEach(b=>b.n=cols.length);cl=[]};
+ blocks.forEach(b=>{if(cl.length&&b.s>=cEnd){flush();cEnd=0}cl.push(b);cEnd=Math.max(cEnd,b.e2)});flush()}
+function drawDay(keep){const ds=dayDs,{blocks,strip}=daySegs(ds),H=DH,old=document.getElementById("dvs"),prev=old?old.scrollTop:0;layoutBlocks(blocks);
+ const lab=h=>(h%12||12)+(h<12?" AM":" PM");
+ let slots="";for(let h=0;h<24;h++)slots+=`<button class="slot" data-slot="${h}" style="top:${h*H}px;height:${H}px" aria-label="Add event at ${lab(h)}">${lab(h)}</button>`;
+ const blk=blocks.map(b=>{const e=b.e,ht=Math.max((b.e2-b.s)*H-2,22),one=(b.e2-b.s)<.75;return `<button class="blk c-${e.cat}${one?" one":""}" data-edit="${e.id}" style="top:${b.s*H+1}px;height:${ht}px;left:calc(${b.col}*100%/${b.n});width:calc(100%/${b.n} - 3px)"><b>${esc(e.title)}</b>${one?` <small>\u00b7 ${esc(b.lbl)}</small>`:`<small>${esc(b.lbl)}</small>${e.loc&&ht>=70?`<small>${esc(e.loc)}</small>`:""}`}</button>`}).join("");
+ const chips=strip.map(x=>`<button class="dvchip c-${x.e.cat}" data-edit="${x.e.id}">${esc(x.e.title)}${x.k?" \u00b7 day "+x.k+" of "+x.n:""}</button>`).join("");
+ $("dayv").innerHTML=`<div class="dvbox"><div class="dvh"><div style="display:flex;align-items:center;gap:8px"><button class="icon" id="dv-back" aria-label="Back to month">\u2039</button><h2>${esc(parse(ds).toLocaleDateString("en-US",{weekday:"long",month:"short",day:"numeric"}))}</h2></div><button class="icon dvplus" id="dv-add" aria-label="Add event">+</button></div>${strip.length?`<div class="dvstrip"><span class="dvl">All day</span>${chips}</div>`:""}<div class="dvscroll" id="dvs"><div class="dvtl" style="height:${24*H}px">${slots}<div class="dvcol">${blk}</div></div></div></div>`;
+ document.getElementById("dvs").scrollTop=keep?prev:Math.max(0,(blocks.length?Math.min(...blocks.map(b=>b.s)):8)*H-12)}
+function openDay(ds){dayDs=ds;drawDay(false);$("dayv").classList.add("show")}
+function closeDay(){$("dayv").classList.remove("show");dayDs=null;render()}
 if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(()=>{});
 sb.auth.getSession().then(({data})=>data.session?afterAuth():showAuth());
 </script>
