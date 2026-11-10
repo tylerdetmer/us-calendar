@@ -399,8 +399,8 @@ function drawDay(keep){const ds=dayDs,{blocks,strip}=daySegs(ds),H=DH,old=docume
  const blk=blocks.map(b=>{const e=b.e,ht=Math.max((b.e2-b.s)*H-2,22),one=(b.e2-b.s)<.75;return `<button class="blk c-${e.cat}${one?" one":""}" data-edit="${e.id}" style="top:${b.s*H+1}px;height:${ht}px;left:calc(${b.col}*100%/${b.n});width:calc(100%/${b.n} - 3px)"><b>${esc(e.title)}</b>${one?` <small>\u00b7 ${esc(b.lbl)}</small>`:`<small>${esc(b.lbl)}</small>${e.loc&&ht>=70?`<small>${esc(e.loc)}</small>`:""}`}</button>`}).join("");
  const chips=strip.map(x=>`<button class="dvchip c-${x.e.cat}" data-edit="${x.e.id}">${esc(x.e.title)}${x.k?" \u00b7 day "+x.k+" of "+x.n:""}</button>`).join("");
  $("dayv").innerHTML=`<div class="dvbox"><div class="dvh"><div style="display:flex;align-items:center;gap:8px"><button class="icon" id="dv-back" aria-label="Back to month">\u2039</button><h2>${esc(parse(ds).toLocaleDateString("en-US",{weekday:"long",month:"short",day:"numeric"}))}</h2></div><button class="icon dvplus" id="dv-add" aria-label="Add event">+</button></div>${strip.length?`<div class="dvstrip"><span class="dvl">All day</span>${chips}</div>`:""}<div class="dvscroll" id="dvs"><div class="dvtl" style="height:${24*H}px">${slots}<div class="dvcol">${blk}</div></div></div></div>`;
- document.getElementById("dvs").scrollTop=keep?prev:Math.max(0,(blocks.length?Math.min(...blocks.map(b=>b.s)):8)*H-12)}
-function openDay(ds){dayDs=ds;drawDay(false);$("dayv").classList.add("show")}
+ const top=keep?prev:Math.max(0,(blocks.length?Math.min(...blocks.map(b=>b.s)):8)*H-12),sc=document.getElementById("dvs");sc.scrollTop=top;if(!keep)requestAnimationFrame(()=>{sc.scrollTop=top})}
+function openDay(ds){dayDs=ds;$("dayv").classList.add("show");drawDay(false)}
 function closeDay(){$("dayv").classList.remove("show");dayDs=null;render()}
 if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(()=>{});
 sb.auth.getSession().then(({data})=>data.session?afterAuth():showAuth());
